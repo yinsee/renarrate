@@ -42,12 +42,21 @@ ffmpeg -y -ss "$START" -t "$DURATION" -i "$SRC" \
   -ar 24000 -ac 1 -c:a pcm_s16le \
   "models/voices/$NAME.wav" 2>&1 | tail -5
 
-echo "[3/3] transcribing reference with whisper"
-python3 -m whisper "models/voices/$NAME.wav" \
-  --model small.en --language en \
-  --output_format txt \
-  --output_dir models/voices \
-  --verbose False --fp16 False 2>&1 | tail -3
+echo "[3/3] transcribing reference with whisper.cpp"
+WCLI=${WHISPER_CPP_CLI:-whisper-cli}
+WMODEL=${WHISPER_CPP_MODEL:-models/whisper-cpp/ggml-small.en.bin}
+if ! command -v "$WCLI" >/dev/null 2>&1 && [ ! -x "$WCLI" ]; then
+  echo "error: whisper-cli not found (override via \$WHISPER_CPP_CLI)" >&2
+  exit 1
+fi
+if [ ! -f "$WMODEL" ]; then
+  echo "error: whisper model not found at $WMODEL (override via \$WHISPER_CPP_MODEL)" >&2
+  exit 1
+fi
+
+# whisper-cli expects 16 kHz mono; convert a temp copy (the saved ref stays 24 kHz).
+ffmpeg -y -i "models/voices/$NAME.wav" -ar 16000 -ac 1 "$TMP/ref16.wav" 2>&1 | tail -2
+"$WCLI" -m "$WMODEL" -f "$TMP/ref16.wav" -l en -otxt -of "models/voices/$NAME" 2>&1 | tail -3
 
 # whisper writes <name>.txt next to the wav; clean it up
 if [ -f "models/voices/$NAME.txt" ]; then
