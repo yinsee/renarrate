@@ -6,11 +6,12 @@ services:
     volumes:
       - ./out:/app/out
       - ./models/voices:/app/models/voices:ro
+      - ./models/whisper-cpp:/app/models/whisper-cpp:ro
       - ./uploads:/app/uploads
     environment:
       LLM_URL: http://ollama:11434/v1
       LLM_MODEL: gemma3:4b
-      WHISPER_MODEL: small.en
+      WHISPER_CPP_MODEL_DIR: /app/models/whisper-cpp
     depends_on:
       - ollama
     restart: unless-stopped

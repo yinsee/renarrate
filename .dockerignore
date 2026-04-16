@@ -1,7 +1,10 @@
 node_modules
 out/
+uploads/
 *.mov
+.superpowers
 .git
 .claude
 .DS_Store
 models/voices/*.wav
+models/whisper-cpp/*.bin

@@ -9,13 +9,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     curl \
     ca-certificates \
+    build-essential \
+    cmake \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --break-system-packages --no-cache-dir openai-whisper f5-tts
+# Build whisper.cpp from source. Produces /usr/local/bin/whisper-cli.
+# The GGML model file (ggml-small.en.bin) is NOT baked into the image — it is
+# bind-mounted from the host via docker-compose (see volumes). This keeps the
+# image small and lets the host manage which whisper model is in use.
+RUN git clone --depth 1 https://github.com/ggml-org/whisper.cpp /tmp/whisper.cpp && \
+    cd /tmp/whisper.cpp && \
+    cmake -B build -DGGML_NATIVE=ON -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build --config Release -j && \
+    install -m 0755 build/bin/whisper-cli /usr/local/bin/whisper-cli && \
+    rm -rf /tmp/whisper.cpp
 
-RUN mkdir -p /root/.cache/whisper && \
-    curl -fsSL -o /root/.cache/whisper/small.en.pt \
-    https://openaipublic.azureedge.net/main/whisper/models/9ecf779972d90ba49c06d968637d720dd632c55bbf19c977e8db3158651c2cda/small.en.pt
+# PyTorch f5-tts for TTS on Linux (f5-tts-mlx is Mac-only and won't install here).
+RUN pip install --break-system-packages --no-cache-dir f5-tts
 
 COPY package*.json ./
 RUN npm install --omit=dev
@@ -25,7 +36,7 @@ COPY . .
 ENV PYTHON_BIN=/usr/bin/python3
 ENV LLM_URL=http://ollama:11434/v1
 ENV LLM_MODEL=gemma3:4b
-ENV WHISPER_MODEL=small.en
+ENV WHISPER_CPP_MODEL_DIR=/app/models/whisper-cpp
 ENV PORT=8080
 
 EXPOSE 8080

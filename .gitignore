@@ -6,3 +6,8 @@ out/
 .env
 .env.local
 .claude/settings.local.json
+.superpowers
+.claude
+docs
+models/whisper-cpp/*.bin
+uploads/
