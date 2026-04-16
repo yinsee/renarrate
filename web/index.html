@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Video Voiceover Rewriter</title>
+<style>
+  html,body{margin:0;padding:0;background:#1a1a1a;color:#eee;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  .container{max-width:640px;margin:40px auto;padding:0 20px;}
+  h1{margin-bottom:4px;}
+  .subtitle{color:#aaa;margin-top:0;margin-bottom:24px;}
+  form{display:flex;flex-direction:column;gap:14px;margin-bottom:20px;}
+  form.disabled{opacity:0.5;pointer-events:none;}
+  label{display:flex;flex-direction:column;gap:6px;font-size:14px;color:#ccc;}
+  input[type=file],select,textarea{background:#222;color:#eee;border:1px solid #333;border-radius:6px;padding:8px;font-size:14px;font-family:inherit;}
+  textarea{resize:vertical;min-height:72px;}
+  button,#download{background:#4a9eff;color:#fff;border:none;border-radius:6px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;text-align:center;}
+  button.secondary{background:#2a2a2a;color:#eee;border:1px solid #444;}
+  button:hover,#download:hover{filter:brightness(1.1);}
+  button:disabled{opacity:0.5;cursor:not-allowed;}
+  .preview-row{display:flex;gap:10px;align-items:stretch;}
+  .preview-row button{white-space:nowrap;}
+  #previewAudio{width:100%;margin-top:8px;display:none;}
+  #log{background:#0f0f0f;border:1px solid #2a2a2a;border-radius:6px;padding:12px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;max-height:400px;overflow-y:auto;white-space:pre-wrap;margin:0;color:#ddd;}
+  #log .err{color:#ff6b6b;}
+  #download{margin-top:16px;display:none;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Video Voiceover Rewriter</h1>
+  <p class="subtitle">Upload a screen recording, pick a narrator, get back a remixed MP4.</p>
+  <form id="form">
+    <label>Source video
+      <input type="file" id="file" accept="video/*">
+    </label>
+    <label>Narrator variant
+      <select id="variant"></select>
+    </label>
+    <label>Preview text
+      <textarea id="previewText" placeholder="Type a sentence or two to hear how the selected narrator reads it." maxlength="500"></textarea>
+    </label>
+    <div class="preview-row">
+      <button type="button" class="secondary" id="previewBtn">Preview voice</button>
+      <audio id="previewAudio" controls></audio>
+    </div>
+    <button type="submit">Render</button>
+  </form>
+  <pre id="log"></pre>
+  <a id="download" href="#" download></a>
+</div>
+<script>
+const form = document.getElementById('form');
+const fileInput = document.getElementById('file');
+const variantSel = document.getElementById('variant');
+const log = document.getElementById('log');
+const download = document.getElementById('download');
+const previewText = document.getElementById('previewText');
+const previewBtn = document.getElementById('previewBtn');
+const previewAudio = document.getElementById('previewAudio');
+let previewBlobUrl = null;
+
+function append(line, isErr){
+  const span = document.createElement('span');
+  if(isErr) span.className = 'err';
+  span.textContent = line + '\n';
+  log.appendChild(span);
+  log.scrollTop = log.scrollHeight;
+}
+
+fetch('/variants').then(r=>r.json()).then(d=>{
+  for(const v of d.variants){
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    variantSel.appendChild(o);
+  }
+  if(d.variants.includes('final')) variantSel.value = 'final';
+}).catch(e=>append('[init] failed to load variants: '+e, true));
+
+previewBtn.addEventListener('click', async ()=>{
+  const text = previewText.value.trim();
+  if(!text){ alert('Type some text first.'); return; }
+  const originalLabel = previewBtn.textContent;
+  previewBtn.disabled = true;
+  previewBtn.textContent = 'Generating…';
+  try{
+    const res = await fetch('/preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({variant: variantSel.value, text}),
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error: res.statusText}));
+      append('[preview] '+(err.error || 'failed'), true);
+      return;
+    }
+    const blob = await res.blob();
+    if(previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    previewBlobUrl = URL.createObjectURL(blob);
+    previewAudio.src = previewBlobUrl;
+    previewAudio.style.display = 'block';
+    try{ await previewAudio.play(); }catch{}
+  }catch(e){
+    append('[preview] '+e.message, true);
+  }finally{
+    previewBtn.disabled = false;
+    previewBtn.textContent = originalLabel;
+  }
+});
+
+form.addEventListener('submit', e=>{
+  e.preventDefault();
+  if(!fileInput.files.length){ alert('Please choose a video file first.'); return; }
+  form.classList.add('disabled');
+  log.textContent = '';
+  download.style.display = 'none';
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  fd.append('variant', variantSel.value);
+  fetch('/jobs', {method:'POST', body:fd}).then(r=>r.json()).then(({jobId})=>{
+    append('[job] started '+jobId);
+    const es = new EventSource('/jobs/'+jobId+'/events');
+    es.onmessage = ev=>{
+      let data; try{ data = JSON.parse(ev.data); }catch{ append(ev.data); return; }
+      const line = '['+data.stage+'] '+(data.message||'');
+      append(line, data.stage==='error');
+      if(data.stage==='done'){
+        append('[done] render complete');
+        if(data.outputUrl){
+          download.href = data.outputUrl;
+          download.textContent = 'Download MP4';
+          download.style.display = 'inline-block';
+        }
+        es.close();
+        form.classList.remove('disabled');
+      } else if(data.stage==='error'){
+        es.close();
+        form.classList.remove('disabled');
+      }
+    };
+    es.onerror = ()=>{
+      append('[connection lost]', true);
+      es.close();
+      form.classList.remove('disabled');
+    };
+  }).catch(e=>{
+    append('[upload] failed: '+e, true);
+    form.classList.remove('disabled');
+  });
+});
+</script>
+</body>
+</html>

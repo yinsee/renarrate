@@ -1,0 +1,7 @@
+node_modules
+out/
+*.mov
+.git
+.claude
+.DS_Store
+models/voices/*.wav
