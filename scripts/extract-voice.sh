@@ -44,7 +44,7 @@ ffmpeg -y -ss "$START" -t "$DURATION" -i "$SRC" \
 
 echo "[3/3] transcribing reference with whisper.cpp"
 WCLI=${WHISPER_CPP_CLI:-whisper-cli}
-WMODEL=${WHISPER_CPP_MODEL:-models/whisper-cpp/ggml-small.en.bin}
+WMODEL=${WHISPER_CPP_MODEL:-models/whisper-cpp/ggml-medium.bin}
 if ! command -v "$WCLI" >/dev/null 2>&1 && [ ! -x "$WCLI" ]; then
   echo "error: whisper-cli not found (override via \$WHISPER_CPP_CLI)" >&2
   exit 1

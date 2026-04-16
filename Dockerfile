@@ -15,12 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Build whisper.cpp from source. Produces /usr/local/bin/whisper-cli.
-# The GGML model file (ggml-small.en.bin) is NOT baked into the image — it is
+# The GGML model file (ggml-medium.bin, auto-downloaded on first run) is NOT baked into the image — it is
 # bind-mounted from the host via docker-compose (see volumes). This keeps the
 # image small and lets the host manage which whisper model is in use.
+ARG TARGETARCH
 RUN git clone --depth 1 https://github.com/ggml-org/whisper.cpp /tmp/whisper.cpp && \
     cd /tmp/whisper.cpp && \
-    cmake -B build -DGGML_NATIVE=ON -DCMAKE_BUILD_TYPE=Release && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+      cmake -B build -DGGML_NATIVE=OFF -DGGML_CPU_ARM_ARCH=armv8.2-a+fp16+dotprod -DCMAKE_BUILD_TYPE=Release; \
+    else \
+      cmake -B build -DGGML_NATIVE=ON -DCMAKE_BUILD_TYPE=Release; \
+    fi && \
     cmake --build build --config Release -j && \
     install -m 0755 build/bin/whisper-cli /usr/local/bin/whisper-cli && \
     rm -rf /tmp/whisper.cpp

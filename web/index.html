@@ -288,6 +288,7 @@
         <label>Narrator variant</label>
         <div class="variant-row">
           <select id="variant"></select>
+          <select id="outputLanguage" style="max-width:160px"></select>
           <button type="submit" id="submitBtn">Start Rendering</button>
           <a id="download" class="download-btn" href="#" target="_blank" style="display:none">View Rendered Video</a>
         </div>
@@ -313,6 +314,7 @@
 const form = document.getElementById('form');
 const fileInput = document.getElementById('file');
 const variantSel = document.getElementById('variant');
+const languageSel = document.getElementById('outputLanguage');
 const log = document.getElementById('log');
 const download = document.getElementById('download');
 const submitBtn = document.getElementById('submitBtn');
@@ -369,7 +371,17 @@ fetch('/variants').then(r=>r.json()).then(d=>{
   if(d.variants.includes('natgeo')) variantSel.value = 'natgeo';
 }).catch(e=>append('[init] failed to load variants: '+e, true));
 
+fetch('/languages').then(r=>r.json()).then(d=>{
+  for(const l of d.languages){
+    const o = document.createElement('option');
+    o.value = l.code; o.textContent = l.name;
+    languageSel.appendChild(o);
+  }
+  languageSel.value = d.default || 'en';
+}).catch(e=>append('[init] failed to load languages: '+e, true));
+
 variantSel.addEventListener('change', ()=>{ download.style.display = 'none'; });
+languageSel.addEventListener('change', ()=>{ download.style.display = 'none'; });
 
 generatePreviewBtn.addEventListener('click', async ()=>{
   const text = previewText.value.trim();
@@ -381,7 +393,7 @@ generatePreviewBtn.addEventListener('click', async ()=>{
     const res = await fetch('/preview', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({variant: variantSel.value, text}),
+      body: JSON.stringify({variant: variantSel.value, outputLanguage: languageSel.value, text}),
     });
     if(!res.ok){
       const err = await res.json().catch(()=>({error: res.statusText}));
@@ -414,6 +426,7 @@ form.addEventListener('submit', e=>{
   const fd = new FormData();
   fd.append('file', fileInput.files[0]);
   fd.append('variant', variantSel.value);
+  fd.append('outputLanguage', languageSel.value);
   fetch('/jobs', {method:'POST', body:fd}).then(r=>r.json()).then(({jobId})=>{
     append('[job] started '+jobId);
     const es = new EventSource('/jobs/'+jobId+'/events');

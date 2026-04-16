@@ -12,6 +12,7 @@ function parseArgs(argv) {
     else if (arg.startsWith('--llm-model=')) opts.llmModel = arg.split('=')[1];
     else if (arg.startsWith('--llm-url=')) opts.llmUrl = arg.split('=')[1];
     else if (arg.startsWith('--language=')) opts.language = arg.split('=')[1];
+    else if (arg.startsWith('--output-language=')) opts.outputLanguage = arg.split('=')[1];
     else if (arg.startsWith('--variant=')) opts.variant = arg.split('=')[1];
     else if (arg.startsWith('--')) throw new Error(`Unknown flag: ${arg}`);
     else opts.inputs.push(arg);
@@ -27,6 +28,7 @@ async function main() {
     console.error('flags:');
     console.error('  --force');
     console.error(`  --variant=${Object.keys(VARIANTS).join('|')}`);
+    console.error('  --output-language=en|zh');
     console.error('  --llm-model=gemma-4-e4b-it-8bit');
     console.error('  --llm-url=http://localhost:11433/v1');
     process.exit(2);
