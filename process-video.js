@@ -9,6 +9,10 @@ function parseArgs(argv) {
   const opts = { ...PIPELINE_DEFAULTS, force: false, inputs: [] };
   for (const arg of argv) {
     if (arg === '--force') opts.force = true;
+    else if (arg === '--explain') opts.explain = true;
+    else if (arg === '--slow-video') opts.slowVideo = true;
+    else if (arg.startsWith('--explain-interval=')) opts.explainInterval = parseFloat(arg.split('=')[1]);
+    else if (arg.startsWith('--explain-max-frames=')) opts.explainMaxFrames = parseInt(arg.split('=')[1], 10);
     else if (arg.startsWith('--llm-model=')) opts.llmModel = arg.split('=')[1];
     else if (arg.startsWith('--llm-url=')) opts.llmUrl = arg.split('=')[1];
     else if (arg.startsWith('--language=')) opts.language = arg.split('=')[1];
@@ -27,6 +31,10 @@ async function main() {
     console.error('usage: node process-video.js <input.mov> [more...]');
     console.error('flags:');
     console.error('  --force');
+    console.error('  --explain                 (describe video via vision LLM instead of transcribing audio)');
+    console.error('  --explain-interval=2      (seconds between sampled frames in explain mode)');
+    console.error('  --explain-max-frames=64   (safety cap on total frames sent to vision LLM)');
+    console.error('  --slow-video              (if narration is longer than video, slow video to match instead of freezing last frame)');
     console.error(`  --variant=${Object.keys(VARIANTS).join('|')}`);
     console.error('  --output-language=en|zh');
     console.error('  --llm-model=gemma-4-e4b-it-8bit');

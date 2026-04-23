@@ -292,6 +292,24 @@
           <button type="submit" id="submitBtn">Start Rendering</button>
           <a id="download" class="download-btn" href="#" target="_blank" style="display:none">View Rendered Video</a>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:12px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-main);cursor:pointer">
+          <input type="checkbox" id="explain">
+          Explain video (describe frames with vision LLM instead of transcribing audio)
+        </label>
+        <div id="explainOpts" style="display:none;margin-left:24px;margin-top:6px;display:flex;gap:16px;align-items:center;font-size:13px;color:var(--text-muted)">
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-muted)">
+            Frame interval (s)
+            <input type="number" id="explainInterval" min="0.5" max="30" step="0.5" value="2" style="width:80px;padding:6px 8px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:var(--text-main)">
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-muted)">
+            Max frames
+            <input type="number" id="explainMaxFrames" min="4" max="256" step="1" value="64" style="width:80px;padding:6px 8px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:var(--text-main)">
+          </label>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-main);cursor:pointer">
+          <input type="checkbox" id="slowVideo">
+          Slow down video to match narration (instead of freezing last frame)
+        </label>
       </div>
 
       <details id="previewSection">
@@ -315,6 +333,13 @@ const form = document.getElementById('form');
 const fileInput = document.getElementById('file');
 const variantSel = document.getElementById('variant');
 const languageSel = document.getElementById('outputLanguage');
+const explainChk = document.getElementById('explain');
+const explainOpts = document.getElementById('explainOpts');
+const explainIntervalInput = document.getElementById('explainInterval');
+const explainMaxFramesInput = document.getElementById('explainMaxFrames');
+const slowVideoChk = document.getElementById('slowVideo');
+function syncExplainOpts(){ explainOpts.style.display = explainChk.checked ? 'flex' : 'none'; }
+syncExplainOpts();
 const log = document.getElementById('log');
 const download = document.getElementById('download');
 const submitBtn = document.getElementById('submitBtn');
@@ -382,6 +407,8 @@ fetch('/languages').then(r=>r.json()).then(d=>{
 
 variantSel.addEventListener('change', ()=>{ download.style.display = 'none'; });
 languageSel.addEventListener('change', ()=>{ download.style.display = 'none'; });
+explainChk.addEventListener('change', ()=>{ download.style.display = 'none'; syncExplainOpts(); });
+slowVideoChk.addEventListener('change', ()=>{ download.style.display = 'none'; });
 
 generatePreviewBtn.addEventListener('click', async ()=>{
   const text = previewText.value.trim();
@@ -427,6 +454,10 @@ form.addEventListener('submit', e=>{
   fd.append('file', fileInput.files[0]);
   fd.append('variant', variantSel.value);
   fd.append('outputLanguage', languageSel.value);
+  fd.append('explain', explainChk.checked ? '1' : '0');
+  fd.append('explainInterval', explainIntervalInput.value || '2');
+  fd.append('explainMaxFrames', explainMaxFramesInput.value || '64');
+  fd.append('slowVideo', slowVideoChk.checked ? '1' : '0');
   fetch('/jobs', {method:'POST', body:fd}).then(r=>r.json()).then(({jobId})=>{
     append('[job] started '+jobId);
     const es = new EventSource('/jobs/'+jobId+'/events');
