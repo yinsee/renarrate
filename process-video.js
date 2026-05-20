@@ -18,6 +18,7 @@ function parseArgs(argv) {
     else if (arg.startsWith('--language=')) opts.language = arg.split('=')[1];
     else if (arg.startsWith('--output-language=')) opts.outputLanguage = arg.split('=')[1];
     else if (arg.startsWith('--variant=')) opts.variant = arg.split('=')[1];
+    else if (arg.startsWith('--style=')) opts.style = arg.split('=')[1];
     else if (arg.startsWith('--')) throw new Error(`Unknown flag: ${arg}`);
     else opts.inputs.push(arg);
   }
@@ -36,6 +37,7 @@ async function main() {
     console.error('  --explain-max-frames=64   (safety cap on total frames sent to vision LLM)');
     console.error('  --slow-video              (if narration is longer than video, slow video to match instead of freezing last frame)');
     console.error(`  --variant=${Object.keys(VARIANTS).join('|')}`);
+    console.error(`  --style=${Object.keys(VARIANTS).join('|')}   (override narration style while keeping --variant voice)`);
     console.error('  --output-language=en|zh');
     console.error('  --llm-model=gemma-4-e4b-it-8bit');
     console.error('  --llm-url=http://localhost:11433/v1');
